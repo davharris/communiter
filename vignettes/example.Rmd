@@ -2,6 +2,7 @@
 output: pdf_document
 ---
 ```{r}
+set.seed(1)
 library(assertthat)
 library(MASS) # For multivariate normal
 ```
@@ -61,5 +62,17 @@ matplot(X[ , 1], eta, type = "l", lty = 1)
 # Simulate counts from the eta values
 counts = matrix(rpois(nrow(X) * n_spp, exp(5 + eta)), ncol = n_spp)
 matplot(X[ , 1], counts, type = "l", lty = 1, log = "y", ylab = "counts (log scale)")
+```
+
+```{r, cache = TRUE}
+x2 = expand.grid(seq(0, 5, length = 20), seq(0, 5, length = 20))
+f2 = kronecker_eta(diag(3), make_RQ_function(l = 1, a = 1))
+
+eta2 = f2(x2)
+
+library(ggplot2)
+qplot(x2[,1], x2[,2], fill = eta2[, 1]) + geom_raster()
+qplot(x2[,1], x2[,2], fill = eta2[, 2]) + geom_raster()
+qplot(x2[,1], x2[,2], fill = eta2[, 3]) + geom_raster()
 ```
 
