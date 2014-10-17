@@ -1,0 +1,65 @@
+---
+output: pdf_document
+---
+```{r}
+library(assertthat)
+library(MASS) # For multivariate normal
+```
+
+Function that returns a Rational quadratic kernel function with the specified mixture of lengthscales
+
+```{r}
+make_RQ_function = function(l, a){
+  # Let's keep l and a the same for all dimensions for now.
+  assert_that(length(l) == 1)
+  assert_that(length(a) == 1)
+  
+  function(x){
+    # From Rasmussen and Williams
+    r = as.matrix(dist(x))
+    (1 + r^2 / (2 * a * l^2))^-a
+  }
+}
+```
+
+Function that combines a species-by-species kernel with an environment kernel function (such as the one returned by `make_RQ_function`)
+
+```{r}
+kronecker_eta = function(species_covariance, kernel_function){
+  function(x){
+    K = kronecker(species_covariance, kernel_function(x))
+    
+    matrix(
+      mvrnorm(1, mu = rep(0, nrow(K)), Sigma = K),
+      ncol = ncol(species_covariance)
+    )
+  }
+}
+```
+
+```{r}
+# Generate a multivariate abiotic environment (that happens to fall along a
+# single dimension, for easier plotting)
+X = seq(0, 10, length = 100) %*% matrix(c(1, 2, .1), nrow = 1)
+
+# Generate a species covariance matrix that's mostly an identity matrix, but
+# with species 1 and 2 (black and red) tightly correlated
+n_spp = 4
+species_covariance = diag(n_spp)
+species_covariance[2, 1] = species_covariance[1, 2] = .9
+species_covariance
+```
+
+```{r, cache = TRUE}
+# Function to turn environmental observations into eta values
+f = kronecker_eta(species_covariance, make_RQ_function(l = 1, a = 1))
+
+# Randomly generate eta values and plot them
+eta = f(X)
+matplot(X[ , 1], eta, type = "l", lty = 1)
+
+# Simulate counts for the eta values
+counts = matrix(rpois(nrow(X) * n_spp, exp(5 + eta)), ncol = n_spp)
+matplot(X[ , 1], counts, type = "l", lty = 1, log = "y", ylab = "counts (log scale)")
+```
+
