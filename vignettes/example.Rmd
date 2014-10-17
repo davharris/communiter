@@ -58,7 +58,7 @@ f = kronecker_eta(species_covariance, make_RQ_function(l = 1, a = 1))
 eta = f(X)
 matplot(X[ , 1], eta, type = "l", lty = 1)
 
-# Simulate counts for the eta values
+# Simulate counts from the eta values
 counts = matrix(rpois(nrow(X) * n_spp, exp(5 + eta)), ncol = n_spp)
 matplot(X[ , 1], counts, type = "l", lty = 1, log = "y", ylab = "counts (log scale)")
 ```
