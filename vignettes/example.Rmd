@@ -1,13 +1,22 @@
 ---
+title: Simulating assemblages from a Gaussian process model
 output: pdf_document
 ---
+
+# Basic setup
 ```{r}
 set.seed(1)
 library(assertthat)
 library(MASS) # For multivariate normal
 ```
 
-Function that returns a Rational quadratic kernel function with the specified mixture of lengthscales
+# Functions
+
+## Making a single kernel
+
+Function that returns a rational quadratic kernel function with the specified mixture of lengthscales.
+
+A rational quadratic kernel has a mixture of lengthscales, with the contribution of high-frequency components being largest with small values of $a$.
 
 ```{r}
 make_RQ_function = function(l, a){
@@ -23,13 +32,18 @@ make_RQ_function = function(l, a){
 }
 ```
 
-Function that combines a species-by-species kernel with an environment kernel function (such as the one returned by `make_RQ_function`)
+## Making a multi-species kernel
+
+Function that combines a species-by-species kernel with an environment kernel function (such as the one returned by `make_RQ_function`).
+
+I got the idea for kronecker-structured covariance for multi-species applications from Nick Golding, who got it from James Hensman.
+
+I'm calling the resulting function an eta function because it returns values on the link scale (e.g. logit scale for presence-absence), and thus corresponds to $\eta$ in GLM terminology.
 
 ```{r}
-kronecker_eta = function(species_covariance, kernel_function){
+make_kronecker_eta = function(species_covariance, kernel_function){
   function(x){
     K = kronecker(species_covariance, kernel_function(x))
-    
     matrix(
       mvrnorm(1, mu = rep(0, nrow(K)), Sigma = K),
       ncol = ncol(species_covariance)
@@ -38,11 +52,17 @@ kronecker_eta = function(species_covariance, kernel_function){
 }
 ```
 
-```{r}
+# A one-dimensional example
+
+Generate an abiotic environment
+```{r 1d}
 # Generate a multivariate abiotic environment (that happens to fall along a
 # single dimension, for easier plotting)
-X = seq(0, 10, length = 100) %*% matrix(c(1, 2, .1), nrow = 1)
+X = seq(0, 4, length = 100) %*% matrix(c(1, 2, .1), nrow = 1)
+```
 
+Generate a species covariance matrix
+```{r}
 # Generate a species covariance matrix that's mostly an identity matrix, but
 # with species 1 and 2 (black and red) tightly correlated
 n_spp = 4
@@ -51,28 +71,33 @@ species_covariance[2, 1] = species_covariance[1, 2] = .9
 species_covariance
 ```
 
+Calculate and plot eta
 ```{r, cache = TRUE}
 # Function to turn environmental observations into eta values
-f = kronecker_eta(species_covariance, make_RQ_function(l = 1, a = 1))
+f = make_kronecker_eta(species_covariance, make_RQ_function(l = 2, a = 5))
 
 # Randomly generate eta values and plot them
 eta = f(X)
-matplot(X[ , 1], eta, type = "l", lty = 1)
-
-# Simulate counts from the eta values
-counts = matrix(rpois(nrow(X) * n_spp, exp(5 + eta)), ncol = n_spp)
-matplot(X[ , 1], counts, type = "l", lty = 1, log = "y", ylab = "counts (log scale)")
+matplot(X[ , 1], eta, type = "l", lty = 1) 
 ```
 
-```{r, cache = TRUE}
-x2 = expand.grid(seq(0, 5, length = 20), seq(0, 5, length = 20))
-f2 = kronecker_eta(diag(3), make_RQ_function(l = 1, a = 1))
+Simulate and plot counts from eta
+```{r}
+counts = matrix(rpois(nrow(X) * n_spp, exp(5 + eta)), ncol = n_spp)
+matplot(X[ , 1], counts, log = "y", ylab = "counts (log scale)", cex = 0.5, pch = 1)
+```
 
-eta2 = f2(x2)
+# A two-dimensional example
+
+```{r 2d, cache = TRUE}
+x2 = expand.grid(seq(0, 2, length = 20), seq(0, 5, length = 20))
+
+eta2 = f(x2)
 
 library(ggplot2)
 qplot(x2[,1], x2[,2], fill = eta2[, 1]) + geom_raster()
 qplot(x2[,1], x2[,2], fill = eta2[, 2]) + geom_raster()
 qplot(x2[,1], x2[,2], fill = eta2[, 3]) + geom_raster()
+qplot(x2[,1], x2[,2], fill = eta2[, 4]) + geom_raster()
 ```
 
