@@ -5,7 +5,7 @@ output: pdf_document
 
 # Basic setup
 ```{r}
-set.seed(1)
+set.seed(0)
 library(assertthat)
 library(MASS) # For multivariate normal
 ```
